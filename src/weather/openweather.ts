@@ -9,7 +9,8 @@ import {
   WeatherData,
   WeatherWarning,
   WeatherDataType,
-  WeatherForecastType
+  WeatherForecastType,
+  WeatherReqParams
 } from '../lib/mock-weather-api'
 // *************************************************
 
@@ -151,7 +152,7 @@ export class OpenWeather {
    */
   fetchObservations = async (
     position: Position,
-    count?: number,
+    options?: WeatherReqParams,
     bypassCache?: boolean
   ): Promise<WeatherData[]> => {
     try {
@@ -163,7 +164,7 @@ export class OpenWeather {
         owData = await this.wcache.getEntry(entryId)
       }
       const obs = this.parseOWObservations(owData)
-      return count ? obs.slice(0, count) : obs
+      return options?.maxCount ? obs.slice(0, options.maxCount) : obs
     } catch (err) {
       throw new Error(`Error fetching / parsing weather data!`)
     }
@@ -173,13 +174,13 @@ export class OpenWeather {
    * Fetch forecasts of the specified type for provided Position and number of entries from cache | server.
    *  @params position: {latitude, longitude}
    *  @params type Forecatst ype 'daily' | 'point'
-   *  @params count: Number of forecast entries to return
+   *  @params options: Number of forecast entries to retur, etc.
    *  @params bypassCache: true = Always fetch from source (ignores the cache)
    */
   fetchForecasts = async (
     position: Position,
     type: WeatherForecastType,
-    count?: number,
+    options?: WeatherReqParams,
     bypassCache?: boolean
   ): Promise<WeatherData[]> => {
     try {
@@ -191,7 +192,7 @@ export class OpenWeather {
         owData = await this.wcache.getEntry(entryId)
       }
       const f = this.parseOWForecasts(owData, type)
-      return count ? f.slice(0, count) : f
+      return options?.maxCount ? f.slice(0, options.maxCount) : f
     } catch (err) {
       throw new Error(`Error fetching / parsing weather data from provider!`)
     }

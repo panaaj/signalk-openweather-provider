@@ -6,22 +6,27 @@ __Signal K Server plugin for integrating the OpenWeather service with the `Weath
 
 ## Description
 
-This plugin communicates with the OpenWeather API and acts as a provider for the Signal K Weather API to expose weather data under the path `/signalk/v2/api/weather` _(see the Signal K Server documentation for details)_.
+This plugin is a Signal K weather provider which communicates with the OpenWeather API to expose weather data under the path `/signalk/v2/api/weather` _(see the Signal K Server documentation for details)_.
 
-Requests from the Signal K server, via the `Weather API`, are passed to the plugin which then retrieves the forecast and observation data from the OpenWeather service.
+Requests to OpenWeather are made using the API key supplied in the plugin configuration.
 
-You can select the number of daily forecasts and hourly point forecasts as well as have the plugin poll OpenWeather at regular intervals to retrieve weather data for the vessels current location.
+**Supported Signal K Weather API options:**
+- `count` Up to 48 Forecast entries, N/A for Observations (only the most current observation is returned [count=1]). 
+- `date` Not supported
 
-Weather data is accessed by making requests to the Signal K Server REST API `/signalk/v2/api/weather`.
+### Polling
+The plugin can be configured to poll OpenWeather at regular intervals with the vessel's current location which made available via both the Signal K:
 
-Additionally, weather data retrieved from polling using the vessels position is available via `/signalk/v1/api/meteo/openweather`.
+- Weather API `/signalk/v2/api/weather`
+- Data model `/signalk/v1/api/meteo/openweather`.
 
+### Data Cache
+Data returned from OpenWeather is cached by the plugin to reduce the number of requests made to the service over the Internet connection.
 
-### Data Caching
-
-Data retrieved fron the OpenWeather service is cached to reduce the number of requests made over the Internet connection.
-
-The cache data is refreshed when a request is received for a location within the cached area AND the age of the cached data >= `poll interval`.
+The cache is refreshed periodically to ensure the most recent data is available.
+The cache data is checked for refresh whenever:
+1. A request is received for a location within the cached area
+1. The age of the cached data >= `poll interval` specified in the plugin configuration.
 
 
 ## Configuration
@@ -31,16 +36,11 @@ From the Signal K server `Admin` console:
 
 -  From the list of plugins select `OpenWeather (Weather Provider)`  to display the details screen.
 
-- Select the number of _Daily forecasts_ to retrieve
-
-- Select the number of _Hourly Point forecasts_ to retrieve from OpenWeather.
-
-- Select the polling interval. _(Note: This is also used as the maximum age for cache data.)_
+- Enter an _OpenWeather API Key_. This is required to use the OpenWeather API.
 
 - Check _Poll periodically using vessel position_ to regularly fetch weather data for the vessel's current posiition.
 
-- Enter an _OpenWeather API Key_. This is required to use the OpenWeather API.
-
+- Select the polling interval. _(Note: This is also used as the maximum age for cache data.)_
 
 
 ## Requirements

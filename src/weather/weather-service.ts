@@ -4,9 +4,9 @@ import { OpenWeather } from './openweather'
 
 //************ Signal K Weather API ****************
 import {
-  WeatherProviderData,
   WeatherData,
   WeatherForecastType,
+  WeatherReqParams,
   WeatherWarning
 } from '../lib/mock-weather-api'
 // *************************************************
@@ -15,8 +15,6 @@ export interface WEATHER_CONFIG {
   apiKey: string
   enable: boolean
   pollInterval: number
-  forecastHours: number
-  forecastDays: number
 }
 
 let server: OpenWeatherProviderApp
@@ -49,18 +47,15 @@ export const WEATHER_POLL_INTERVAL = [15, 30, 60]
 const providerRegistration = {
   name: weatherServiceName,
   methods: {
-    getData: () => {
-      throw new Error('Not implemented')
-    },
-    getObservations: (position: Position, count?: number) => {
-      return getObservationData(position, count)
+    getObservations: (position: Position, options?: WeatherReqParams) => {
+      return getObservationData(position, options)
     },
     getForecasts: (
       position: Position,
       type: WeatherForecastType,
-      count?: number
+      options?: WeatherReqParams
     ) => {
-      return getForecastData(position, type, count)
+      return getForecastData(position, type, options)
     },
     getWarnings: (position: Position) => {
       return getWarnings(position)
@@ -75,10 +70,10 @@ const providerRegistration = {
  */
 export const getObservationData = async (
   position: Position,
-  count?: number
+  options?: WeatherReqParams
 ): Promise<WeatherData[]> => {
   try {
-    const r = await weatherService.fetchObservations(position, count)
+    const r = await weatherService.fetchObservations(position, options)
     return r
   } catch (err) {
     throw new Error('Error fetching observation data from provider!')
@@ -95,10 +90,10 @@ export const getObservationData = async (
 export const getForecastData = async (
   position: Position,
   type: WeatherForecastType,
-  count?: number
+  options?: WeatherReqParams
 ): Promise<WeatherData[]> => {
   try {
-    const r = await weatherService.fetchForecasts(position, type, count)
+    const r = await weatherService.fetchForecasts(position, type, options)
     return r
   } catch (err) {
     throw new Error('Error fetching observation data from provider!')
@@ -152,7 +147,7 @@ export const initWeather = (
   weatherService = new OpenWeather(config, server.getDataDirPath())
 
   if (config.enable) {
-    //pollWeatherData()
+    pollWeatherData()
   }
 }
 
@@ -169,8 +164,8 @@ export const stopWeather = () => {
   lastFetch = fetchInterval - 1
 }
 
-/** Fetch data at current vessel position at specified interval.
-const pollWeatherData = () => {
+/** Fetch data at current vessel position at specified interval. */
+const pollWeatherData = async () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pos: any = server.getSelfPath('navigation.position')
   if (!pos) {
@@ -214,45 +209,43 @@ const pollWeatherData = () => {
 
     server.debug(`Position: ${JSON.stringify(pos.value)}`)
     server.debug(`*** Weather: polling weather provider.`)
-    weatherService
-      .fetchData(pos.value)
-      .then((data) => {
-        server.debug(`*** Weather: data received....`)
-        retry.count = 0
-        lastFetch = Date.now()
+    try {
+      const obs = await weatherService.fetchObservations(
+        pos.value,
+        undefined,
+        true
+      )
+      server.debug(`*** Weather: data received....`)
+      retry.count = 0
+      lastFetch = Date.now()
+      lastWake = Date.now()
+      emitMeteoDeltas(pos.value, obs[0])
+      timer = setInterval(() => {
+        server.debug(`*** Weather: wake from sleep....poll provider.`)
+        const dt = Date.now() - lastWake
+        // check for runaway timer
+        if (dt >= 50000) {
+          server.debug('Wake timer watchdog -> OK')
+          server.debug(`*** Weather: Polling provider.`)
+        } else {
+          server.debug('Wake timer watchdog -> NOT OK... Stopping wake timer!')
+          server.debug(`Watch interval < 50 secs. (${dt / 1000} secs)`)
+          clearInterval(timer)
+          server.setPluginError('Weather watch timer error!')
+        }
         lastWake = Date.now()
-        //weatherService.meteoData[data.id] = data
-        timer = setInterval(() => {
-          server.debug(`*** Weather: wake from sleep....poll provider.`)
-          const dt = Date.now() - lastWake
-          // check for runaway timer
-          if (dt >= 50000) {
-            server.debug('Wake timer watchdog -> OK')
-            server.debug(`*** Weather: Polling provider.`)
-          } else {
-            server.debug(
-              'Wake timer watchdog -> NOT OK... Stopping wake timer!'
-            )
-            server.debug(`Watch interval < 50 secs. (${dt / 1000} secs)`)
-            clearInterval(timer)
-            server.setPluginError('Weather watch timer error!')
-          }
-          lastWake = Date.now()
-          pollWeatherData()
-        }, wakeInterval)
-
-        emitMeteoDeltas(data)
-      })
-      .catch((err) => {
-        server.debug(
-          `*** Weather: ERROR polling weather provider! (retry in ${
-            retry.interval / 1000
-          } sec)`
-        )
-        server.debug(err.message)
-        // sleep and retry
-        retryTimer = setTimeout(() => pollWeatherData(), retry.interval)
-      })
+        pollWeatherData()
+      }, wakeInterval)
+    } catch (err) {
+      server.debug(
+        `*** Weather: ERROR polling weather provider! (retry in ${
+          retry.interval / 1000
+        } sec)`
+      )
+      server.debug((err as Error).message)
+      // sleep and retry
+      retryTimer = setTimeout(() => pollWeatherData(), retry.interval)
+    }
   } else {
     // max retries. sleep and retry?
     retry.count = 0
@@ -261,134 +254,127 @@ const pollWeatherData = () => {
     )
   }
 }
-*/
-const emitMeteoDeltas = (data: WeatherProviderData) => {
+
+const emitMeteoDeltas = (position: Position, obs: WeatherData) => {
   const pathRoot = 'environment'
   const deltaValues = []
 
   server.debug('**** METEO - emit deltas*****')
 
-  if (data && data.id && data.position) {
+  deltaValues.push({
+    path: 'navigation.position',
+    value: position
+  })
+
+  server.debug('**** METEO OBS *****')
+
+  deltaValues.push({
+    path: ``,
+    value: { name: weatherServiceName }
+  })
+
+  if (typeof obs.date !== 'undefined') {
     deltaValues.push({
-      path: 'navigation.position',
-      value: data.position
+      path: `${pathRoot}.date`,
+      value: obs.date
     })
-
-    const obs = data.observations
-    server.debug('**** METEO *****')
-    if (obs && Array.isArray(obs)) {
-      server.debug('**** METEO OBS *****')
-      obs.forEach((o: WeatherData) => {
-        deltaValues.push({
-          path: ``,
-          value: { name: weatherServiceName }
-        })
-
-        if (typeof o.date !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.date`,
-            value: o.date
-          })
-        }
-        if (typeof o.outside?.horizontalVisibility !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.outside.horizontalVisibility`,
-            value: o.outside.horizontalVisibility
-          })
-        }
-        if (typeof o.sun?.sunrise !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.sun.sunrise`,
-            value: o.sun.sunrise
-          })
-        }
-        if (typeof o.sun?.sunset !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.sun.sunset`,
-            value: o.sun.sunset
-          })
-        }
-        if (typeof o.outside?.uvIndex !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.outside.uvIndex`,
-            value: o.outside.uvIndex
-          })
-        }
-        if (typeof o.outside?.cloudCover !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.outside.cloudCover`,
-            value: o.outside.cloudCover
-          })
-        }
-        if (typeof o.outside?.temperature !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.outside.temperature`,
-            value: o.outside.temperature
-          })
-        }
-        if (typeof o.outside?.dewPointTemperature !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.outside.dewPointTemperature`,
-            value: o.outside.dewPointTemperature
-          })
-        }
-        if (typeof o.outside?.feelsLikeTemperature !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.outside.feelsLikeTemperature`,
-            value: o.outside.feelsLikeTemperature
-          })
-        }
-        if (typeof o.outside?.pressure !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.outside.pressure`,
-            value: o.outside.pressure
-          })
-        }
-        if (typeof o.outside?.relativeHumidity !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.outside.relativeHumidity`,
-            value: o.outside.relativeHumidity
-          })
-        }
-        if (typeof o.outside?.absoluteHumidity !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.outside.absoluteHumidity`,
-            value: o.outside.absoluteHumidity
-          })
-        }
-        if (typeof o.outside?.precipitationType !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.outside.precipitationType`,
-            value: o.outside.precipitationType
-          })
-        }
-        if (typeof o.wind?.speedTrue !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.wind.speedTrue`,
-            value: o.wind.speedTrue
-          })
-        }
-        if (typeof o.wind?.directionTrue !== 'undefined') {
-          deltaValues.push({
-            path: `${pathRoot}.wind.directionTrue`,
-            value: o.wind.directionTrue
-          })
-        }
-      })
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const updates: any = {
-        values: deltaValues
-      }
-
-      server.handleMessage(
-        pluginId,
-        {
-          context: `meteo.${weatherServiceName.toLocaleLowerCase()}`,
-          updates: [updates]
-        },
-        SKVersion.v1
-      )
-    }
   }
+  if (typeof obs.outside?.horizontalVisibility !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.horizontalVisibility`,
+      value: obs.outside.horizontalVisibility
+    })
+  }
+  if (typeof obs.sun?.sunrise !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.sun.sunrise`,
+      value: obs.sun.sunrise
+    })
+  }
+  if (typeof obs.sun?.sunset !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.sun.sunset`,
+      value: obs.sun.sunset
+    })
+  }
+  if (typeof obs.outside?.uvIndex !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.uvIndex`,
+      value: obs.outside.uvIndex
+    })
+  }
+  if (typeof obs.outside?.cloudCover !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.cloudCover`,
+      value: obs.outside.cloudCover
+    })
+  }
+  if (typeof obs.outside?.temperature !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.temperature`,
+      value: obs.outside.temperature
+    })
+  }
+  if (typeof obs.outside?.dewPointTemperature !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.dewPointTemperature`,
+      value: obs.outside.dewPointTemperature
+    })
+  }
+  if (typeof obs.outside?.feelsLikeTemperature !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.feelsLikeTemperature`,
+      value: obs.outside.feelsLikeTemperature
+    })
+  }
+  if (typeof obs.outside?.pressure !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.pressure`,
+      value: obs.outside.pressure
+    })
+  }
+  if (typeof obs.outside?.relativeHumidity !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.relativeHumidity`,
+      value: obs.outside.relativeHumidity
+    })
+  }
+  if (typeof obs.outside?.absoluteHumidity !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.absoluteHumidity`,
+      value: obs.outside.absoluteHumidity
+    })
+  }
+  if (typeof obs.outside?.precipitationType !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.precipitationType`,
+      value: obs.outside.precipitationType
+    })
+  }
+  if (typeof obs.wind?.speedTrue !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.wind.speedTrue`,
+      value: obs.wind.speedTrue
+    })
+  }
+  if (typeof obs.wind?.directionTrue !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.wind.directionTrue`,
+      value: obs.wind.directionTrue
+    })
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updates: any = {
+    values: deltaValues
+  }
+
+  server.handleMessage(
+    pluginId,
+    {
+      context: `meteo.${weatherServiceName.toLocaleLowerCase()}`,
+      updates: [updates]
+    },
+    SKVersion.v1
+  )
 }

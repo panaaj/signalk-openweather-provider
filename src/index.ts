@@ -1,4 +1,4 @@
-import { Plugin, ServerAPI } from '@signalk/server-api'
+import { Plugin, ServerAPI, SKVersion } from '@signalk/server-api'
 import { Application } from 'express'
 
 import {
@@ -13,8 +13,6 @@ import { WeatherProviderRegistry } from './lib/mock-weather-api'
 // *************************************************
 
 const DEFAULT_POLL_INTERVAL = 60
-const DEFAULT_FORECAST_HOURS = 8
-const DEFAULT_FORECAST_DAYS = 1
 
 const CONFIG_SCHEMA = {
   properties: {
@@ -23,20 +21,16 @@ const CONFIG_SCHEMA = {
       type: 'object',
       description: 'Weather service settings.',
       properties: {
-        forecastDays: {
-          type: 'number',
-          title: 'Daily forecasts',
-          default: DEFAULT_FORECAST_DAYS,
-          enum: [1, 2, 3, 4, 5, 6, 7],
-          description: 'Select the number of daily forecasts to retrieve.'
+        apiKey: {
+          type: 'string',
+          title: 'API Key',
+          default: '',
+          description: 'Get your API key at https://openweather.org'
         },
-        forecastHours: {
-          type: 'number',
-          title: 'Hourly point forecasts',
-          default: DEFAULT_FORECAST_HOURS,
-          enum: [5, 8, 10, 15, 24, 36, 48],
-          description:
-            'Select the number of hourly point forecasts to retrieve.'
+        enable: {
+          type: 'boolean',
+          default: false,
+          title: 'Poll periodcally using vessel position.'
         },
         pollInterval: {
           type: 'number',
@@ -45,17 +39,6 @@ const CONFIG_SCHEMA = {
           enum: WEATHER_POLL_INTERVAL,
           description:
             'Select the interval at which the weather service is polled.'
-        },
-        enable: {
-          type: 'boolean',
-          default: false,
-          title: 'Poll periodcally using vessel position.'
-        },
-        apiKey: {
-          type: 'string',
-          title: 'API Key',
-          default: '',
-          description: 'Get your API key at https://openweather.org'
         }
       }
     }
@@ -64,6 +47,10 @@ const CONFIG_SCHEMA = {
 
 const CONFIG_UISCHEMA = {
   weather: {
+    apiKey: {
+      'ui:disabled': false,
+      'ui-help': ''
+    },
     enable: {
       'ui:widget': 'checkbox',
       'ui:title': ' ',
@@ -73,10 +60,6 @@ const CONFIG_UISCHEMA = {
       'ui:widget': 'select',
       'ui:title': 'Polling Interval (mins)',
       'ui:help': ' '
-    },
-    apiKey: {
-      'ui:disabled': false,
-      'ui-help': ''
     }
   }
 }
@@ -96,9 +79,7 @@ module.exports = (server: OpenWeatherProviderApp): Plugin => {
     weather: {
       enable: false,
       apiKey: '',
-      pollInterval: DEFAULT_POLL_INTERVAL,
-      forecastHours: 8,
-      forecastDays: 1
+      pollInterval: DEFAULT_POLL_INTERVAL
     }
   }
 
@@ -141,14 +122,11 @@ module.exports = (server: OpenWeatherProviderApp): Plugin => {
       settings.weather.apiKey = options.weather.apiKey ?? ''
       settings.weather.pollInterval =
         options.weather.pollInterval ?? DEFAULT_POLL_INTERVAL
-      settings.weather.forecastHours =
-        options.weather.forecastHours ?? DEFAULT_FORECAST_HOURS
-      settings.weather.forecastDays =
-        options.weather.forecastDays ?? DEFAULT_FORECAST_DAYS
 
       server.debug(`Applied config: ${JSON.stringify(settings)}`)
 
       initWeather(server, plugin.id, settings.weather)
+      emitMeteoMetas()
 
       server.setPluginStatus(`Started`)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -167,6 +145,243 @@ module.exports = (server: OpenWeatherProviderApp): Plugin => {
     server.debug('** Un-subscribing from events **')
     const msg = 'Stopped'
     server.setPluginStatus(msg)
+  }
+
+  const emitMeteoMetas = () => {
+    const pathRoot = 'environment'
+    const metas = []
+    server.debug('**** METEO - building observation metas *****')
+    metas.push({
+      path: `${pathRoot}.date`,
+      value: {
+        description: 'Time of measurement.'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.sun.sunrise`,
+      value: {
+        description: 'Time of sunrise at the related position.'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.sun.sunset`,
+      value: {
+        description: 'Time of sunset at the related position.'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.uvIndex`,
+      value: {
+        description: 'Level of UV radiation. 1 UVI = 25mW/sqm',
+        units: 'UVI'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.cloudCover`,
+      value: {
+        description: 'Cloud clover.',
+        units: 'ratio'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.temperature`,
+      value: {
+        description: 'Outside air temperature.',
+        units: 'K'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.dewPointTemperature`,
+      value: {
+        description: 'Dew point.',
+        units: 'K'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.feelsLikeTemperature`,
+      value: {
+        description: 'Feels like temperature.',
+        units: 'K'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.horizontalVisibility`,
+      value: {
+        description: 'Horizontal visibility.',
+        units: 'm'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.horizontalVisibilityOverRange`,
+      value: {
+        description:
+          'Visibilty distance is greater than the range of the measuring equipment.'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.pressure`,
+      value: {
+        description: 'Barometric pressure.',
+        units: 'Pa'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.pressureTendency`,
+      value: {
+        description:
+          'Integer value indicating barometric pressure value tendency e.g. 0 = steady, etc.'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.outside.pressureTendencyType`,
+      value: {
+        description:
+          'Description for the value of pressureTendency e.g. steady, increasing, decreasing.'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.relativeHumidity`,
+      value: {
+        description: 'Relative humidity.',
+        units: 'ratio'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.outside.absoluteHumidity`,
+      value: {
+        description: 'Absolute humidity.',
+        units: 'ratio'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.wind.averageSpeed`,
+      value: {
+        description: 'Average wind speed.',
+        units: 'm/s'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.wind.speedTrue`,
+      value: {
+        description: 'True wind speed.',
+        units: 'm/s'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.wind.directionTrue`,
+      value: {
+        description: 'The wind direction relative to true north.',
+        units: 'rad'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.wind.gust`,
+      value: {
+        description: 'Maximum wind gust.',
+        units: 'm/s'
+      }
+    })
+    metas.push({
+      path: `${pathRoot}.wind.gustDirectionTrue`,
+      value: {
+        description: 'Maximum wind gust direction.',
+        units: 'rad'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.wind.gust`,
+      value: {
+        description: 'Maximum wind gust.',
+        units: 'm/s'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.water.level`,
+      value: {
+        description: 'Water level.',
+        units: 'm'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.water.levelTendency`,
+      value: {
+        description:
+          'Integer value indicating water level tendency e.g. 0 = steady, etc.'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.water.levelTendencyType`,
+      value: {
+        description:
+          'Description for the value of levelTendency e.g. steady, increasing, decreasing.'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.water.waves.significantHeight`,
+      value: {
+        description: 'Significant wave height.',
+        units: 'm'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.water.waves.period`,
+      value: {
+        description: 'Wave period.',
+        units: 'ms'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.water.waves.direction`,
+      value: {
+        description: 'Wave direction.',
+        units: 'rad'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.water.swell.significantHeight`,
+      value: {
+        description: 'Significant swell height.',
+        units: 'm'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.water.swell.period`,
+      value: {
+        description: 'Swell period.',
+        units: 'ms'
+      }
+    })
+
+    metas.push({
+      path: `${pathRoot}.water.swell.directionTrue`,
+      value: {
+        description: 'Swell direction.',
+        units: 'rad'
+      }
+    })
+
+    server.handleMessage(
+      plugin.id,
+      {
+        context: `meteo.openweather`,
+        updates: [
+          {
+            meta: metas
+          }
+        ]
+      },
+      SKVersion.v1
+    )
   }
 
   return plugin
