@@ -8,7 +8,9 @@ import {
   stopWeather
 } from './weather/weather-service'
 
-//************ Signal K Weather API ****************
+/**
+ * @todo remove reference to mock-weather-api
+ */
 import { WeatherProviderRegistry } from './lib/mock-weather-api'
 // *************************************************
 

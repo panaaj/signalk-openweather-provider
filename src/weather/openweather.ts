@@ -4,7 +4,9 @@ import { Position } from '@signalk/server-api'
 import { WEATHER_CONFIG } from './weather-service'
 import { WCache } from '../lib/cache'
 
-//************ Signal K Weather API ****************
+/**
+ * @todo remove reference to mock-weather-api
+ */
 import {
   WeatherData,
   WeatherWarning,

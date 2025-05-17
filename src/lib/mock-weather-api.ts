@@ -38,34 +38,6 @@ export interface WeatherProvider {
 export interface WeatherProviderMethods {
   pluginId?: string
 
-  /**
-   * Retrieves observation data from the weather provider for the supplied position.
-   *
-   * @category Weather API
-   * 
-   * @param position Location of interest 
-   * @param options Options
-   * 
-   * @example
-    ```javascript
-    getObservations({latitude: 16.34765, longitude: 12.5432}, 1);
-    ```
-
-    ```JSON
-    [
-        {
-            "date": "2024-05-03T06:00:00.259Z",
-            "type": "observation",
-            "outside": { ... }
-        },
-        {
-            "date": "2024-05-03T05:00:00.259Z",
-            "type": "observation",
-            "outside": { ... }
-        }
-    ]
-    ```
-  */
   getObservations: (
     position: Position,
     options?: {
@@ -74,36 +46,6 @@ export interface WeatherProviderMethods {
     }
   ) => Promise<WeatherData[]>
 
-  /**
-   * Retrieves forecast data from the weather provider for the supplied position, forecast type and number of intervals.
-   *
-   * @category Weather API
-   * 
-   * @param position Location of interest 
-   * @param type Type of forecast point | daily
-   * @param options Options
-   * 
-   * @example
-   * Retrieve point forecast data for the next eight point intervalss
-    ```javascript
-    getForecasts({latitude: 16.34765, longitude: 12.5432}, 'point', 8);
-    ```
-
-    ```JSON
-    [
-        {
-            "date": "2024-05-03T06:00:00.259Z",
-            "type": "point",
-            "outside": { ... }
-        },
-        {
-            "date": "2024-05-03T05:00:00.259Z",
-            "type": "point",
-            "outside": { ... }
-        }
-    ]
-    ```
-  */
   getForecasts: (
     position: Position,
     type: WeatherForecastType,
@@ -113,30 +55,6 @@ export interface WeatherProviderMethods {
     }
   ) => Promise<WeatherData[]>
 
-  /**
-   * Retrieves warning data from the weather provider for the supplied position.
-   *
-   * @category Weather API
-   * 
-   * @param position Location of interest 
-   *
-   * @example
-    ```javascript
-    getWarnings({latitude: 16.34765, longitude: 12.5432});
-    ```
-
-    ```JSON
-    [
-      {
-        "startTime": "2024-05-03T05:00:00.259Z",
-        "endTime": "2024-05-03T08:00:00.702Z",
-        "details": "Strong wind warning.",
-        "source": "MyWeatherService",
-        "type": "Warning"
-      }
-    ]
-    ```
-  */
   getWarnings: (position: Position) => Promise<WeatherWarning[]>
 }
 

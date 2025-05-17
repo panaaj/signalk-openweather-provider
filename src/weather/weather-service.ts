@@ -2,7 +2,9 @@ import { SKVersion, Position } from '@signalk/server-api'
 import { OpenWeatherProviderApp } from '..'
 import { OpenWeather } from './openweather'
 
-//************ Signal K Weather API ****************
+/**
+ * @todo remove reference to mock-weather-api
+ */
 import {
   WeatherData,
   WeatherForecastType,
