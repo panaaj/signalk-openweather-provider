@@ -28,18 +28,9 @@ let lastFetch: number // last successful fetch
 let fetchInterval = 3600000 // 1hr
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let timer: any
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let retryTimer: any
-const retry = {
-  interval: 10000, // time to wait after a failed api request
-  maxCount: 3, // max number of retries on failed api connection
-  count: 0 // number of retries on failed api connection
-}
-const noPosRetry = {
-  count: 0, // number of retries to attempted when no position detected
-  maxCount: 12, // maximum number of retries to attempt when no position detected
-  interval: 10000 // time to wait between retires when no position detected
-}
+const errorCountMax = 5 // max number of consecutive errors before terminating timer
+let errorCount = 0 // number of consecutive fetch errors (no position / failed api connection, etc)
+
 let weatherService: OpenWeather
 
 const weatherServiceName = 'OpenWeather'
@@ -149,7 +140,11 @@ export const initWeather = (
   weatherService = new OpenWeather(config, server.getDataDirPath())
 
   if (config.enable) {
-    pollWeatherData()
+    if (!timer) {
+      server.debug(`*** Weather: startTimer..`)
+      timer = setInterval(() => pollWeatherData(), wakeInterval)
+      pollWeatherData()
+    }
   }
 }
 
@@ -160,100 +155,87 @@ export const stopWeather = () => {
   if (timer) {
     clearInterval(timer)
   }
-  if (retryTimer) {
-    clearTimeout(retryTimer)
-  }
+  timer = null
   lastFetch = fetchInterval - 1
+  lastWake = 0
 }
 
 /** Fetch data at current vessel position at specified interval. */
 const pollWeatherData = async () => {
+  // runaway check
+  if (lastWake > 0) {
+    const dt = Date.now() - lastWake
+    const flagValue = wakeInterval - 10000
+    if (dt < flagValue) {
+      server.debug(
+        `Watchdog -> Awake!...(${dt / 1000} secs)... stopping timer...`
+      )
+      stopWeather()
+      server.setPluginError('Weather timer stopped by watchdog!')
+      return
+    }
+  }
+  lastWake = Date.now()
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pos: any = server.getSelfPath('navigation.position')
   if (!pos) {
-    server.debug(`*** Weather: No vessel position detected!`)
-    if (noPosRetry.count >= noPosRetry.maxCount) {
-      server.debug(
-        `*** Weather: Maximum number of retries to detect vessel position!... sleeping.`
-      )
-      return
-    }
-    noPosRetry.count++
-    retryTimer = setTimeout(() => {
-      server.debug(
-        `*** Weather: RETRY = ${noPosRetry.count} / ${noPosRetry.maxCount} after no vessel position detected!`
-      )
-      pollWeatherData()
-    }, noPosRetry.interval)
+    handleError(`*** Weather: No vessel position detected!`)
     return
   }
+
   server.debug(`*** Vessel position: ${JSON.stringify(pos.value)}.`)
-  noPosRetry.count = 0
-  if (retryTimer) {
-    clearTimeout(retryTimer)
-  }
+  // check if fetchInterval has lapsed
   if (lastFetch) {
     const e = Date.now() - lastFetch
     if (e < fetchInterval) {
       server.debug(
         `*** Weather: Next poll due in ${Math.round(
           (fetchInterval - e) / 60000
-        )} min(s)... sleep for ${wakeInterval / 1000} secs...`
+        )} min(s)... sleeping for ${wakeInterval / 1000} seconds...`
       )
       return
     }
   }
-  if (retry.count < retry.maxCount) {
-    retry.count++
-    server.debug(
-      `*** Weather: Calling service API.....(attempt: ${retry.count})`
-    )
 
+  if (errorCount < errorCountMax) {
+    server.debug(`*** Weather: Calling service API.....`)
     server.debug(`Position: ${JSON.stringify(pos.value)}`)
     server.debug(`*** Weather: polling weather provider.`)
-    try {
-      const obs = await weatherService.fetchObservations(
-        pos.value,
-        undefined,
-        true
-      )
-      server.debug(`*** Weather: data received....`)
-      retry.count = 0
-      lastFetch = Date.now()
-      lastWake = Date.now()
-      emitMeteoDeltas(pos.value, obs[0])
-      timer = setInterval(() => {
-        server.debug(`*** Weather: wake from sleep....poll provider.`)
-        const dt = Date.now() - lastWake
-        // check for runaway timer
-        if (dt >= 50000) {
-          server.debug('Wake timer watchdog -> OK')
-          server.debug(`*** Weather: Polling provider.`)
-        } else {
-          server.debug('Wake timer watchdog -> NOT OK... Stopping wake timer!')
-          server.debug(`Watch interval < 50 secs. (${dt / 1000} secs)`)
-          clearInterval(timer)
-          server.setPluginError('Weather watch timer error!')
-        }
+    weatherService
+      .fetchObservations(pos.value, undefined, true)
+      .then((obs) => {
+        server.debug(`*** Weather: data received....`)
+        server.debug(JSON.stringify(obs))
+        errorCount = 0
+        lastFetch = Date.now()
         lastWake = Date.now()
-        pollWeatherData()
-      }, wakeInterval)
-    } catch (err) {
-      server.debug(
-        `*** Weather: ERROR polling weather provider! (retry in ${
-          retry.interval / 1000
-        } sec)`
-      )
-      server.debug((err as Error).message)
-      // sleep and retry
-      retryTimer = setTimeout(() => pollWeatherData(), retry.interval)
-    }
-  } else {
-    // max retries. sleep and retry?
-    retry.count = 0
+        emitMeteoDeltas(pos.value, obs[0])
+      })
+      .catch((err) => {
+        handleError(`*** Weather: ERROR polling weather provider!`)
+        console.log(err.message)
+        server.setPluginError(err.message)
+      })
+  }
+}
+
+/**
+ * Handle fetch errors
+ * @param msg mesgage to log
+ */
+const handleError = (msg: string) => {
+  console.log(msg)
+  errorCount++
+  if (errorCount >= errorCountMax) {
+    // max retries exceeded.... going to sleep
     console.log(
-      `*** Weather: Failed to fetch data after ${retry.maxCount} attempts.\nRestart ${pluginId} plugin to retry.`
+      `*** Weather: Failed to fetch data after ${errorCountMax} attempts.\nRestart ${pluginId} plugin to retry.`
     )
+    stopWeather()
+  } else {
+    console.log(`*** Weather: Error count = ${errorCount} of ${errorCountMax}`)
+    console.log(`*** Retry in  ${wakeInterval / 1000} seconds.`)
   }
 }
 
