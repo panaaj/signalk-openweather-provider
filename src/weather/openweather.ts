@@ -1,20 +1,15 @@
 // OpenWeather
 
-import { Position } from '@signalk/server-api'
-import { WEATHER_CONFIG } from './weather-service'
-import { WCache } from '../lib/cache'
-
-/**
- * @todo remove reference to mock-weather-api
- */
 import {
+  Position,
   WeatherData,
   WeatherWarning,
   WeatherDataType,
   WeatherForecastType,
   WeatherReqParams
-} from '../lib/mock-weather-api'
-// *************************************************
+} from '@signalk/server-api'
+import { WEATHER_CONFIG } from './weather-service'
+import { WCache } from '../lib/cache'
 
 interface OWObservation {
   dt: number

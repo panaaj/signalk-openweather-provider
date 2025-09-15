@@ -1,17 +1,14 @@
-import { SKVersion, Position } from '@signalk/server-api'
-import { OpenWeatherProviderApp } from '..'
-import { OpenWeather } from './openweather'
-
-/**
- * @todo remove reference to mock-weather-api
- */
 import {
+  SKVersion,
+  Position,
   WeatherData,
   WeatherForecastType,
   WeatherReqParams,
-  WeatherWarning
-} from '../lib/mock-weather-api'
-// *************************************************
+  WeatherWarning,
+  Context
+} from '@signalk/server-api'
+import { OpenWeatherProviderApp } from '..'
+import { OpenWeather } from './openweather'
 
 export interface WEATHER_CONFIG {
   apiKey: string
@@ -356,7 +353,7 @@ const emitMeteoDeltas = (position: Position, obs: WeatherData) => {
   server.handleMessage(
     pluginId,
     {
-      context: `meteo.${weatherServiceName.toLocaleLowerCase()}`,
+      context: `meteo.${weatherServiceName.toLocaleLowerCase()}` as Context,
       updates: [updates]
     },
     SKVersion.v1

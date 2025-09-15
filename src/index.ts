@@ -1,4 +1,4 @@
-import { Plugin, ServerAPI } from '@signalk/server-api'
+import { Plugin, ServerAPI, WeatherProviderRegistry } from '@signalk/server-api'
 import { Application } from 'express'
 
 import {
@@ -7,12 +7,6 @@ import {
   initWeather,
   stopWeather
 } from './weather/weather-service'
-
-/**
- * @todo remove reference to mock-weather-api
- */
-import { WeatherProviderRegistry } from './lib/mock-weather-api'
-// *************************************************
 
 const DEFAULT_POLL_INTERVAL = 60
 
