@@ -15,7 +15,7 @@ Requests to OpenWeather are made using the API key supplied in the plugin config
 - `date` Not supported
 
 ### Polling
-The plugin can be configured to poll OpenWeather at regular intervals with the vessel's current location which made available via both the Signal K:
+The plugin can be configured to poll OpenWeather at regular intervals with the vessel's current location and make the data available in both the Signal K:
 
 - Weather API `/signalk/v2/api/weather`
 - Data model `/signalk/v1/api/meteo/openweather`.
