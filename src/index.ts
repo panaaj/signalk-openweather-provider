@@ -21,7 +21,7 @@ const CONFIG_SCHEMA = {
           type: 'string',
           title: 'API Key',
           default: '',
-          description: 'Get your API key at https://openweather.org'
+          description: 'Get your API key at https://openweathermap.org'
         },
         enable: {
           type: 'boolean',
