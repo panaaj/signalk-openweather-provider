@@ -139,9 +139,11 @@ export const initWeather = (
 
   if (config.enable) {
     if (!timer) {
-      server.debug(`*** Weather: startTimer..`)
-      timer = setInterval(() => pollWeatherData(), wakeInterval)
-      pollWeatherData()
+      setTimeout(() => {
+        server.debug(`*** Weather: startTimer..`)
+        timer = setInterval(() => pollWeatherData(), wakeInterval)
+        pollWeatherData()
+      }, 3000)
     }
   }
 }

@@ -101,7 +101,11 @@ export class OpenWeather {
   private wcache: WCache
   private server: OpenWeatherProviderApp
 
-  constructor(app: OpenWeatherProviderApp, config: WEATHER_CONFIG, path: string) {
+  constructor(
+    app: OpenWeatherProviderApp,
+    config: WEATHER_CONFIG,
+    path: string
+  ) {
     this.server = app
     this.settings = config
     this.wcache = new WCache(path)
