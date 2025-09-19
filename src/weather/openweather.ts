@@ -10,6 +10,7 @@ import {
 } from '@signalk/server-api'
 import { WEATHER_CONFIG } from './weather-service'
 import { WCache } from '../lib/cache'
+import { OpenWeatherProviderApp } from '..'
 
 interface OWObservation {
   dt: number
@@ -98,8 +99,10 @@ export interface OWResponse {
 export class OpenWeather {
   private settings: WEATHER_CONFIG
   private wcache: WCache
+  private server: OpenWeatherProviderApp
 
-  constructor(config: WEATHER_CONFIG, path: string) {
+  constructor(app: OpenWeatherProviderApp, config: WEATHER_CONFIG, path: string) {
+    this.server = app
     this.settings = config
     this.wcache = new WCache(path)
     this.wcache.maxAge = this.settings.pollInterval
@@ -137,6 +140,7 @@ export class OpenWeather {
       this.wcache.setEntry(id, owData)
       return owData
     } catch (err) {
+      this.server.debug(err)
       throw new Error(`Error fetching weather data from provider!`)
     }
   }
@@ -163,6 +167,7 @@ export class OpenWeather {
       const obs = this.parseOWObservations(owData)
       return options?.maxCount ? obs.slice(0, options.maxCount) : obs
     } catch (err) {
+      this.server.debug(err)
       throw new Error(`Error fetching / parsing weather data!`)
     }
   }

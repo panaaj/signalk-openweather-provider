@@ -135,7 +135,7 @@ export const initWeather = (
 
   server.registerWeatherProvider(providerRegistration)
 
-  weatherService = new OpenWeather(config, server.getDataDirPath())
+  weatherService = new OpenWeather(app, config, server.getDataDirPath())
 
   if (config.enable) {
     if (!timer) {
