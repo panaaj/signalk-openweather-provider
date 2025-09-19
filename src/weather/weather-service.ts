@@ -121,6 +121,7 @@ export const initWeather = (
 ) => {
   server = app
   pluginId = id
+  errorCount = 0
   fetchInterval = (config.pollInterval ?? 60) * 60000
   if (isNaN(fetchInterval)) {
     fetchInterval = 60 * 60000
