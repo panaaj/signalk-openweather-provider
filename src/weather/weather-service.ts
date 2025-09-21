@@ -25,8 +25,6 @@ let lastFetch: number // last successful fetch
 let fetchInterval = 3600000 // 1hr
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let timer: any
-const errorCountMax = 5 // max number of consecutive errors before terminating timer
-let errorCount = 0 // number of consecutive fetch errors (no position / failed api connection, etc)
 
 let weatherService: OpenWeather
 
@@ -121,7 +119,6 @@ export const initWeather = (
 ) => {
   server = app
   pluginId = id
-  errorCount = 0
   fetchInterval = (config.pollInterval ?? 60) * 60000
   if (isNaN(fetchInterval)) {
     fetchInterval = 60 * 60000
@@ -198,26 +195,23 @@ const pollWeatherData = async () => {
     }
   }
 
-  if (errorCount < errorCountMax) {
-    server.debug(`*** Weather: Calling service API.....`)
-    server.debug(`Position: ${JSON.stringify(pos.value)}`)
-    server.debug(`*** Weather: polling weather provider.`)
-    weatherService
-      .fetchObservations(pos.value, undefined, true)
-      .then((obs) => {
-        server.debug(`*** Weather: data received....`)
-        server.debug(JSON.stringify(obs))
-        errorCount = 0
-        lastFetch = Date.now()
-        lastWake = Date.now()
-        emitMeteoDeltas(pos.value, obs[0])
-      })
-      .catch((err) => {
-        handleError(`*** Weather: ERROR polling weather provider!`)
-        console.log(err.message)
-        server.setPluginError(err.message)
-      })
-  }
+  server.debug(`*** Weather: Calling service API.....`)
+  server.debug(`Position: ${JSON.stringify(pos.value)}`)
+  server.debug(`*** Weather: polling weather provider.`)
+  weatherService
+    .fetchObservations(pos.value, undefined, true)
+    .then((obs) => {
+      server.debug(`*** Weather: data received....`)
+      server.debug(JSON.stringify(obs))
+      lastFetch = Date.now()
+      lastWake = Date.now()
+      emitMeteoDeltas(pos.value, obs[0])
+    })
+    .catch((err) => {
+      handleError(`*** Weather: ERROR polling weather provider!`)
+      console.log(err.message)
+      server.setPluginError(err.message)
+    })
 }
 
 /**
@@ -226,17 +220,7 @@ const pollWeatherData = async () => {
  */
 const handleError = (msg: string) => {
   console.log(msg)
-  errorCount++
-  if (errorCount >= errorCountMax) {
-    // max retries exceeded.... going to sleep
-    console.log(
-      `*** Weather: Failed to fetch data after ${errorCountMax} attempts.\nRestart ${pluginId} plugin to retry.`
-    )
-    stopWeather()
-  } else {
-    console.log(`*** Weather: Error count = ${errorCount} of ${errorCountMax}`)
-    console.log(`*** Retry in  ${wakeInterval / 1000} seconds.`)
-  }
+  console.log(`*** Retry in  ${wakeInterval / 1000} seconds.`)
 }
 
 const emitMeteoDeltas = (position: Position, obs: WeatherData) => {

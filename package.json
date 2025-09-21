@@ -1,6 +1,6 @@
 {
   "name": "signalk-openweather-provider",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "OpenWeather provider plugin for Signal K Server",
   "main": "plugin/index.js",
   "scripts": {
