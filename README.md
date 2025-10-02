@@ -10,7 +10,7 @@ This plugin is a Signal K weather provider which communicates with the OpenWeath
 
 Requests to OpenWeather are made using the API key supplied in the plugin configuration.
 
->[Note] An aopenWeather v3 API key is required to be able to use this plugin.
+>Note An aopenWeather v3 API key is required to be able to use this plugin.
 
 **Supported Signal K Weather API options:**
 - `count` Up to 48 Forecast entries, N/A for Observations (only the most current observation is returned [count=1]). 
