@@ -319,6 +319,12 @@ const emitMeteoDeltas = (position: Position, obs: WeatherData) => {
       value: obs.outside.precipitationType
     })
   }
+  if (typeof obs.outside?.precipitationVolume !== 'undefined') {
+    deltaValues.push({
+      path: `${pathRoot}.outside.precipitationVolume`,
+      value: obs.outside.precipitationVolume
+    })
+  }
   if (typeof obs.wind?.speedTrue !== 'undefined') {
     deltaValues.push({
       path: `${pathRoot}.wind.speedTrue`,

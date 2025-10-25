@@ -277,7 +277,7 @@ export class OpenWeather {
         typeof current.rain['1h'] !== 'undefined'
       ) {
         obs.outside.precipitationType = 'rain'
-        obs.outside.precipitationVolume = current.rain['1h']
+        obs.outside.precipitationVolume = current.rain['1h'] / 1000 // mm-> m
       } else {
         if (
           obs.outside &&
@@ -285,7 +285,7 @@ export class OpenWeather {
           typeof current.snow['1h'] !== 'undefined'
         ) {
           obs.outside.precipitationType = 'snow'
-          obs.outside.precipitationVolume = current.snow['1h']
+          obs.outside.precipitationVolume = current.snow['1h'] / 1000 // mm->m
         }
       }
 
@@ -396,10 +396,10 @@ export class OpenWeather {
         }
         if (f.rain && typeof f.rain['1h'] !== 'undefined') {
           forecast.outside.precipitationType = 'rain'
-          forecast.outside.precipitationVolume = f.rain['1h'] ?? null
+          forecast.outside.precipitationVolume = f.rain['1h'] / 1000 // mm -> m
         } else if (f.snow && typeof f.snow['1h'] !== 'undefined') {
           forecast.outside.precipitationType = 'snow'
-          forecast.outside.precipitationVolume = f.snow['1h'] ?? null
+          forecast.outside.precipitationVolume = f.snow['1h'] / 1000 //mm -> m
         }
 
         // clean forecast
