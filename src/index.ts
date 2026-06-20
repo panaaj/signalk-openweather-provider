@@ -65,9 +65,7 @@ interface SETTINGS {
 }
 
 export interface OpenWeatherProviderApp
-  extends Application,
-    ServerAPI,
-    WeatherProviderRegistry {}
+  extends Application, ServerAPI, WeatherProviderRegistry {}
 
 module.exports = (server: OpenWeatherProviderApp): Plugin => {
   // ** default configuration settings
@@ -85,7 +83,6 @@ module.exports = (server: OpenWeatherProviderApp): Plugin => {
     name: 'OpenWeather (Weather Provider)',
     schema: () => CONFIG_SCHEMA,
     uiSchema: () => CONFIG_UISCHEMA,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     start: (settings: any) => {
       doStartup(settings)
     },
@@ -124,7 +121,6 @@ module.exports = (server: OpenWeatherProviderApp): Plugin => {
       initWeather(server, plugin.id, settings.weather)
 
       server.setPluginStatus(`Started`)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       const msg = 'Started with errors!'
       server.setPluginError(error.message ?? msg)

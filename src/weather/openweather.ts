@@ -32,9 +32,7 @@ interface OWObservation {
     description: string
     icon: string
   }>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rain: { [key: string]: any }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   snow: { [key: string]: any }
 }
 
@@ -76,9 +74,7 @@ interface OWForecast {
   clouds: number
   pop: number
   uvi: number
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rain: { [key: string]: any }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   snow: { [key: string]: any }
 }
 
@@ -92,7 +88,6 @@ interface OWWarning {
 }
 
 export interface OWResponse {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any
 }
 
@@ -360,11 +355,9 @@ export class OpenWeather {
           }
         } else {
           if (typeof f.feels_like !== 'undefined') {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             forecast.outside.feelsLikeTemperature = f.feels_like as any
           }
           if (typeof f.temp !== 'undefined') {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             forecast.outside.temperature = f.temp as any
           }
         }

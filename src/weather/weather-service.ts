@@ -23,7 +23,6 @@ const wakeInterval = 60000
 let lastWake: number // last wake time
 let lastFetch: number // last successful fetch
 let fetchInterval = 3600000 // 1hr
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let timer: any
 
 let weatherService: OpenWeather
@@ -174,7 +173,6 @@ const pollWeatherData = async () => {
   }
   lastWake = Date.now()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pos: any = server.getSelfPath('navigation.position')
   if (!pos) {
     handleError(`*** Weather: No vessel position detected!`)
@@ -338,7 +336,6 @@ const emitMeteoDeltas = (position: Position, obs: WeatherData) => {
     })
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updates: any = {
     values: deltaValues
   }
